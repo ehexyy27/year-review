@@ -22,6 +22,7 @@ interface State {
   answers: [string, string, string, string, string, string];
   analysis: string;
   emailError: string;
+  submitError: string;
   isSubmitting: boolean;
 }
 
@@ -490,6 +491,7 @@ const INITIAL: State = {
   answers: ["", "", "", "", "", ""],
   analysis: "",
   emailError: "",
+  submitError: "",
   isSubmitting: false,
 };
 
@@ -537,7 +539,7 @@ export default function App() {
       return;
     }
     // Last question — submit for analysis
-    update({ step: "loading" });
+    update({ step: "loading", submitError: "" });
     try {
       const res = await fetch("/api/analyze", {
         method: "POST",
@@ -551,10 +553,16 @@ export default function App() {
       if (data.analysis) {
         update({ step: "result", analysis: data.analysis });
       } else {
-        update({ step: "q6" });
+        update({
+          step: "q6",
+          submitError: data.error || "Что-то пошло не так. Попробуй ещё раз.",
+        });
       }
     } catch {
-      update({ step: "q6" });
+      update({
+        step: "q6",
+        submitError: "Не удалось отправить. Проверь интернет и попробуй снова.",
+      });
     }
   };
 
@@ -581,15 +589,37 @@ export default function App() {
   const qIdx = getQuestionIndex(step);
   if (qIdx !== -1)
     return (
-      <QuestionScreen
-        key={step}
-        questionIndex={qIdx}
-        answer={state.answers[qIdx]}
-        onChange={(v) => handleAnswerChange(qIdx, v)}
-        onNext={() => handleQuestionNext(qIdx)}
-        onBack={() => handleBack(qIdx)}
-        isLast={qIdx === 5}
-      />
+      <>
+        <QuestionScreen
+          key={step}
+          questionIndex={qIdx}
+          answer={state.answers[qIdx]}
+          onChange={(v) => handleAnswerChange(qIdx, v)}
+          onNext={() => handleQuestionNext(qIdx)}
+          onBack={() => handleBack(qIdx)}
+          isLast={qIdx === 5}
+        />
+        {state.submitError && (
+          <div
+            style={{
+              position: "fixed",
+              bottom: "24px",
+              left: "50%",
+              transform: "translateX(-50%)",
+              background: "#1a0a0a",
+              border: "1px solid #c0392b",
+              color: "#e74c3c",
+              padding: "12px 24px",
+              fontSize: "0.875rem",
+              maxWidth: "480px",
+              width: "calc(100% - 40px)",
+              textAlign: "center",
+            }}
+          >
+            {state.submitError}
+          </div>
+        )}
+      </>
     );
 
   if (step === "loading") return <LoadingScreen />;
