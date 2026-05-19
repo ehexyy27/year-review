@@ -13,11 +13,11 @@ const QUESTIONS = [
 
 const SYSTEM_PROMPT = `Ты пишешь честный анализ года человека на основе его ответов. Говоришь о нём в третьем лице — «этот человек», «он», «она». Тон — умный наблюдатель, который видит паттерн, не судья и не коуч. Используй его собственные слова из ответов. Найди один главный паттерн, который проходит через все ответы, и назови его прямо. Сделай один жёсткий вывод, который сложно проигнорировать. Закончи одним вопросом — не советом. Никогда не хвали за факт существования. Никогда не используй слова: рост, трансформация, путешествие, ты молодец, двигайся вперёд. Никогда не давай список советов. Пиши на русском языке.`;
 
-function buildPrompt(answers: string[]): string {
+function buildUserPrompt(answers: string[]): string {
   const qa = answers
     .map((answer, i) => `Вопрос ${i + 1}: ${QUESTIONS[i]}\nОтвет: ${answer.trim()}`)
     .join("\n\n");
-  return `${SYSTEM_PROMPT}\n\nВот ответы человека на 6 вопросов о его годе:\n\n${qa}\n\nНапиши честный анализ.`;
+  return `Вот ответы человека на 6 вопросов о его годе:\n\n${qa}\n\nНапиши честный анализ.`;
 }
 
 export async function POST(req: NextRequest) {
@@ -36,14 +36,25 @@ export async function POST(req: NextRequest) {
 
     const apiKey = process.env.GEMINI_API_KEY;
     if (!apiKey) {
+      console.error("[analyze] GEMINI_API_KEY is not set");
       return NextResponse.json({ error: "API ключ не настроен" }, { status: 500 });
     }
 
     const genAI = new GoogleGenerativeAI(apiKey);
-    const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
 
-    const result = await model.generateContent(buildPrompt(answers));
+    // Use systemInstruction for proper system prompt support
+    const model = genAI.getGenerativeModel({
+      model: "gemini-2.0-flash",
+      systemInstruction: SYSTEM_PROMPT,
+    });
+
+    const result = await model.generateContent(buildUserPrompt(answers));
     const analysis = result.response.text();
+
+    if (!analysis) {
+      console.error("[analyze] Empty response from Gemini");
+      return NextResponse.json({ error: "Пустой ответ от ИИ. Попробуй снова." }, { status: 500 });
+    }
 
     // Save to Supabase (non-blocking, best-effort)
     if (email) {
@@ -51,8 +62,9 @@ export async function POST(req: NextRequest) {
     }
 
     return NextResponse.json({ analysis });
-  } catch (err) {
-    console.error("[analyze] error:", err);
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err);
+    console.error("[analyze] error:", message);
     return NextResponse.json(
       { error: "Не удалось получить анализ. Попробуй снова." },
       { status: 500 }
