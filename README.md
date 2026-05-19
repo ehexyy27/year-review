@@ -1,36 +1,82 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Year Review — Честный анализ года
 
-## Getting Started
+6 неудобных вопросов → честный анализ от ИИ.
 
-First, run the development server:
+## Быстрый старт
 
 ```bash
+npm install
+cp .env.local.example .env.local
+# заполни .env.local (см. ниже)
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Открой http://localhost:3000
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+---
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Настройка переменных окружения
 
-## Learn More
+### 1. Anthropic API Key (обязательно)
 
-To learn more about Next.js, take a look at the following resources:
+1. Зайди на https://console.anthropic.com
+2. API Keys → Create Key
+3. Вставь в `.env.local`:
+   ```
+   ANTHROPIC_API_KEY=sk-ant-...
+   ```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+### 2. Supabase (опционально — для блокировки повторных прохождений)
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+Если не настроишь — сайт работает, но один человек может пройти несколько раз.
 
-## Deploy on Vercel
+**Создать проект:**
+1. Зайди на https://supabase.com → New project
+2. Запомни пароль от БД
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+**Создать таблицу:**
+1. Supabase → SQL Editor → вставь содержимое `supabase-schema.sql` → Run
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+**Получить ключи:**
+1. Supabase → Settings → API
+2. Скопируй:
+   - `Project URL` → `NEXT_PUBLIC_SUPABASE_URL`
+   - `service_role` (secret) → `SUPABASE_SERVICE_ROLE_KEY`
+
+Вставь в `.env.local`:
+```
+NEXT_PUBLIC_SUPABASE_URL=https://xxxx.supabase.co
+SUPABASE_SERVICE_ROLE_KEY=eyJ...
+```
+
+---
+
+## Деплой на Vercel
+
+```bash
+npm i -g vercel
+vercel
+```
+
+При первом деплое Vercel спросит настройки — все оставь по умолчанию.
+
+Затем добавь переменные окружения:
+- Vercel Dashboard → проект → Settings → Environment Variables
+- Добавь `ANTHROPIC_API_KEY`, и опционально Supabase ключи
+
+---
+
+## Структура проекта
+
+```
+app/
+  page.tsx               — весь UI (лендинг → вопросы → результат)
+  globals.css            — дизайн-токены и стили
+  api/
+    analyze/route.ts     — вызов Claude API
+    check-email/route.ts — проверка email в Supabase
+lib/
+  supabase.ts            — Supabase клиент (работает без настройки)
+supabase-schema.sql      — SQL для создания таблицы
+.env.local.example       — шаблон переменных окружения
+```
