@@ -1,4 +1,4 @@
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import Groq from "groq-sdk";
 import { NextRequest, NextResponse } from "next/server";
 import { saveSubmission } from "@/lib/supabase";
 
@@ -34,25 +34,28 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Заполни все 6 ответов" }, { status: 400 });
     }
 
-    const apiKey = process.env.GEMINI_API_KEY;
+    const apiKey = process.env.GROQ_API_KEY;
     if (!apiKey) {
-      console.error("[analyze] GEMINI_API_KEY is not set");
+      console.error("[analyze] GROQ_API_KEY is not set");
       return NextResponse.json({ error: "API ключ не настроен" }, { status: 500 });
     }
 
-    const genAI = new GoogleGenerativeAI(apiKey);
+    const groq = new Groq({ apiKey });
 
-    // Use systemInstruction for proper system prompt support
-    const model = genAI.getGenerativeModel({
-      model: "gemini-2.0-flash",
-      systemInstruction: SYSTEM_PROMPT,
+    const completion = await groq.chat.completions.create({
+      model: "llama-3.3-70b-versatile",
+      messages: [
+        { role: "system", content: SYSTEM_PROMPT },
+        { role: "user", content: buildUserPrompt(answers) },
+      ],
+      max_tokens: 1024,
+      temperature: 0.8,
     });
 
-    const result = await model.generateContent(buildUserPrompt(answers));
-    const analysis = result.response.text();
+    const analysis = completion.choices[0]?.message?.content ?? "";
 
     if (!analysis) {
-      console.error("[analyze] Empty response from Gemini");
+      console.error("[analyze] Empty response from Groq");
       return NextResponse.json({ error: "Пустой ответ от ИИ. Попробуй снова." }, { status: 500 });
     }
 
